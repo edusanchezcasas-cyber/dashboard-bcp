@@ -1143,35 +1143,50 @@ function procesarDatos(raw){
 
 /* ============ 2. ESTADO DE FILTROS ============ */
 
-const filtros = {
-  estado: new Set(),
-  distrito: new Set(),
-  area: new Set(),
-  materia: new Set(),
-  anio: new Set(),
-  puesto: new Set(),
-  motivoCese: new Set(),
-  resultado: new Set(),
-  reposicion: new Set(),
-  reposicionInicial: new Set(),
-  estaRepuesto: new Set(),
-  estadoConciliacion: new Set(),
-  busqueda: ''
+function crearFiltrosVacios(){
+  return {
+    estado: new Set(),
+    distrito: new Set(),
+    area: new Set(),
+    materia: new Set(),
+    anio: new Set(),
+    puesto: new Set(),
+    motivoCese: new Set(),
+    resultado: new Set(),
+    reposicion: new Set(),
+    reposicionInicial: new Set(),
+    estaRepuesto: new Set(),
+    estadoConciliacion: new Set(),
+    busqueda: ''
+  };
+}
+
+const filtrosPorTab = {
+  tabGeneral: crearFiltrosVacios(),
+  tabLima1: crearFiltrosVacios(),
+  tabSolPago: crearFiltrosVacios(),
+  tabProvincias2: crearFiltrosVacios()
 };
+
+// Apunta siempre a los filtros de la pestaña actualmente activa (para los controles
+// compartidos de la barra superior: Distrito, Área, Materia, Año, Resultado, Reposición)
+let filtros = filtrosPorTab.tabGeneral;
 
 function valoresUnicos(arr, key){
   return [...new Set(arr.map(d => d[key]).filter(v => v !== null && v !== undefined && v !== ''))].sort();
 }
 
-function construirChips(containerId, valores, filtroSet, onChange){
+function construirChips(containerId, valores, getSet, onChange){
   const cont = document.getElementById(containerId);
   cont.innerHTML = '';
   valores.forEach(v => {
     const chip = document.createElement('div');
     chip.className = 'chip';
     chip.textContent = v;
+    if (getSet().has(v)) chip.classList.add('active');
     chip.onclick = () => {
-      if (filtroSet.has(v)) filtroSet.delete(v); else filtroSet.add(v);
+      const s = getSet();
+      if (s.has(v)) s.delete(v); else s.add(v);
       chip.classList.toggle('active');
       onChange();
     };
@@ -1179,7 +1194,7 @@ function construirChips(containerId, valores, filtroSet, onChange){
   });
 }
 
-function construirDropdown(prefix, valores, filtroSet, onChange){
+function construirDropdown(prefix, valores, getSet, onChange){
   const btn = document.getElementById('dd' + prefix + 'Btn');
   const panel = document.getElementById('dd' + prefix + 'Panel');
   const search = document.getElementById('dd' + prefix + 'Search');
@@ -1187,6 +1202,7 @@ function construirDropdown(prefix, valores, filtroSet, onChange){
   const clearBtn = panel.querySelector('[data-action="clear"]');
 
   function actualizarBoton(){
+    const filtroSet = getSet();
     if (filtroSet.size === 0) {
       btn.textContent = 'Todos';
       btn.classList.remove('filled');
@@ -1200,6 +1216,7 @@ function construirDropdown(prefix, valores, filtroSet, onChange){
   }
 
   function pintarLista(filtroTexto){
+    const filtroSet = getSet();
     const q = (filtroTexto || '').toLowerCase();
     const filtrados = valores.filter(v => v.toLowerCase().includes(q));
     list.innerHTML = '';
@@ -1221,8 +1238,9 @@ function construirDropdown(prefix, valores, filtroSet, onChange){
       item.appendChild(check);
       item.appendChild(span);
       item.onclick = () => {
-        if (filtroSet.has(v)) filtroSet.delete(v); else filtroSet.add(v);
-        check.checked = filtroSet.has(v);
+        const s = getSet();
+        if (s.has(v)) s.delete(v); else s.add(v);
+        check.checked = s.has(v);
         actualizarBoton();
         onChange();
       };
@@ -1244,7 +1262,7 @@ function construirDropdown(prefix, valores, filtroSet, onChange){
   search.oninput = () => pintarLista(search.value);
   clearBtn.onclick = (e) => {
     e.stopPropagation();
-    filtroSet.clear();
+    getSet().clear();
     actualizarBoton();
     pintarLista(search.value);
     onChange();
@@ -1261,20 +1279,21 @@ document.addEventListener('click', () => {
   document.querySelectorAll('.dropdown-panel').forEach(p => p.hidden = true);
 });
 
-function aplicarFiltros(sinEstado){
-  const q = filtros.busqueda.trim().toLowerCase();
+function aplicarFiltros(filtrosObj, sinEstado){
+  const f = filtrosObj || filtros;
+  const q = f.busqueda.trim().toLowerCase();
   return DATA.filter(d => {
-    if (!sinEstado && filtros.estado.size && !filtros.estado.has(d.estado)) return false;
-    if (filtros.distrito.size && !filtros.distrito.has(d.distrito)) return false;
-    if (filtros.area.size && !filtros.area.has(d.area)) return false;
-    if (filtros.materia.size && !filtros.materia.has(d.materia)) return false;
-    if (filtros.anio.size && !filtros.anio.has(String(d.anio))) return false;
-    if (filtros.puesto.size && !filtros.puesto.has(d.puesto)) return false;
-    if (filtros.motivoCese.size && !filtros.motivoCese.has(d.motivoCese)) return false;
-    if (filtros.resultado.size && !filtros.resultado.has(d.resultadoActual)) return false;
-    if (filtros.reposicion.size && !filtros.reposicion.has(d.implicaReposicion)) return false;
-    if (filtros.reposicionInicial.size && !filtros.reposicionInicial.has(d.implicaReposicionInicial)) return false;
-    if (filtros.estaRepuesto.size && !filtros.estaRepuesto.has(d.estaRepuesto)) return false;
+    if (!sinEstado && f.estado.size && !f.estado.has(d.estado)) return false;
+    if (f.distrito.size && !f.distrito.has(d.distrito)) return false;
+    if (f.area.size && !f.area.has(d.area)) return false;
+    if (f.materia.size && !f.materia.has(d.materia)) return false;
+    if (f.anio.size && !f.anio.has(String(d.anio))) return false;
+    if (f.puesto.size && !f.puesto.has(d.puesto)) return false;
+    if (f.motivoCese.size && !f.motivoCese.has(d.motivoCese)) return false;
+    if (f.resultado.size && !f.resultado.has(d.resultadoActual)) return false;
+    if (f.reposicion.size && !f.reposicion.has(d.implicaReposicion)) return false;
+    if (f.reposicionInicial.size && !f.reposicionInicial.has(d.implicaReposicionInicial)) return false;
+    if (f.estaRepuesto.size && !f.estaRepuesto.has(d.estaRepuesto)) return false;
     if (q && !(String(d.demandante).toLowerCase().includes(q) || String(d.expediente).toLowerCase().includes(q))) return false;
     return true;
   });
@@ -1329,19 +1348,19 @@ function destruirCharts(){
 }
 
 function renderTodo(){
-  const filtrados = aplicarFiltros();
-  const filtradosLima1 = subconjuntoLima1(filtrados);
-  const baseSolPago = filtrados;
-  const filtradosSolPago = aplicarEstadoConciliacion(baseSolPago);
-  const baseProvincias2 = filtrados;
-  const filtradosProvincias2 = aplicarEstadoConciliacion(baseProvincias2);
+  const filtrados = aplicarFiltros(filtrosPorTab.tabGeneral);
+  const filtradosLima1 = aplicarFiltros(filtrosPorTab.tabLima1);
+  const baseSolPago = aplicarFiltros(filtrosPorTab.tabSolPago);
+  const filtradosSolPago = aplicarEstadoConciliacion(baseSolPago, filtrosPorTab.tabSolPago);
+  const baseProvincias2 = aplicarFiltros(filtrosPorTab.tabProvincias2);
+  const filtradosProvincias2 = aplicarEstadoConciliacion(baseProvincias2, filtrosPorTab.tabProvincias2);
 
   // "Está repuesto" debe considerar todos los estados (menos Archivo Definitivo, que ya se excluye
   // globalmente) sin importar qué Estado esté seleccionado en los filtros/recuadros de esa pestaña.
-  const filtradosSinEstado = aplicarFiltros(true);
-  const lima1SinEstado = subconjuntoLima1(filtradosSinEstado);
-  const solPagoSinEstado = filtradosSinEstado;
-  const provincias2SinEstado = filtradosSinEstado;
+  const generalSinEstado = aplicarFiltros(filtrosPorTab.tabGeneral, true);
+  const lima1SinEstado = aplicarFiltros(filtrosPorTab.tabLima1, true);
+  const solPagoSinEstado = aplicarFiltros(filtrosPorTab.tabSolPago, true);
+  const provincias2SinEstado = aplicarFiltros(filtrosPorTab.tabProvincias2, true);
 
   document.getElementById('kpiTotal').textContent =
     (tabActual === 'tabLima1') ? filtradosLima1.length :
@@ -1350,14 +1369,14 @@ function renderTodo(){
     filtrados.length;
 
   sincronizarFiltrosUI();
-  safeRender('estadoBoxes', () => renderEstadoBoxes(filtrados));
+  safeRender('estadoBoxes', () => renderEstadoBoxesEn('estadoBoxes', generalSinEstado, filtrosPorTab.tabGeneral));
   safeRender('tabla', () => renderTabla(filtrados));
 
-  safeRender('lima1-base', () => renderTabLima1Base(filtradosLima1));
+  safeRender('lima1-base', () => renderTabLima1Base(filtradosLima1, lima1SinEstado));
   safeRender('solpago-base', () => renderTabSolPagoBase(baseSolPago, filtradosSolPago));
-  safeRender('mapaSolPago', () => renderMapaPeru('mapaSolPago', filtradosSolPago));
+  safeRender('mapaSolPago', () => renderMapaPeru('mapaSolPago', filtradosSolPago, filtrosPorTab.tabSolPago));
   safeRender('provincias2-base', () => renderTabProvincias2Base(baseProvincias2, filtradosProvincias2));
-  safeRender('mapaProvincias2', () => renderMapaPeru('mapaProvincias2', filtradosProvincias2));
+  safeRender('mapaProvincias2', () => renderMapaPeru('mapaProvincias2', filtradosProvincias2, filtrosPorTab.tabProvincias2));
 
   if (typeof Chart === 'undefined') {
     mostrarAvisoChart();
@@ -1416,7 +1435,8 @@ const DEPARTAMENTO_A_DISTRITOS = {
 
 let mapaSvgPintado = {};
 
-function renderMapaPeru(containerId, filtrados){
+function renderMapaPeru(containerId, filtrados, filtrosObj){
+  const f = filtrosObj || filtros;
   const cont = document.getElementById(containerId);
   if (!cont || typeof PERU_MAP_PATHS === 'undefined') return;
 
@@ -1453,7 +1473,7 @@ function renderMapaPeru(containerId, filtrados){
       path.addEventListener('click', () => {
         const distritos = DEPARTAMENTO_A_DISTRITOS[dep] || [];
         if (!distritos.length) return;
-        toggleGrupo(filtros.distrito, distritos);
+        toggleGrupo(f.distrito, distritos);
         renderTodo();
       });
     });
@@ -1463,7 +1483,7 @@ function renderMapaPeru(containerId, filtrados){
   cont.querySelectorAll('path[data-dep]').forEach(path => {
     const dep = path.dataset.dep;
     const count = conteoDepto[dep] || 0;
-    const seleccionado = DEPARTAMENTO_A_DISTRITOS[dep] && DEPARTAMENTO_A_DISTRITOS[dep].some(d0 => filtros.distrito.has(d0));
+    const seleccionado = DEPARTAMENTO_A_DISTRITOS[dep] && DEPARTAMENTO_A_DISTRITOS[dep].some(d0 => f.distrito.has(d0));
     const intensidad = max > 0 ? count / max : 0;
     path.setAttribute('fill', count === 0 ? '#EDEBE4' : mezclarColor('#CFE0EC', '#042433', intensidad));
     path.setAttribute('stroke', seleccionado ? '#B08D57' : '#fff');
@@ -1498,9 +1518,10 @@ function subconjuntoLima1(filtrados){
   return filtrados;
 }
 
-function aplicarEstadoConciliacion(base){
-  if (!filtros.estadoConciliacion.size) return base;
-  return base.filter(d => [...filtros.estadoConciliacion].some(opt => {
+function aplicarEstadoConciliacion(base, filtrosObj){
+  const f = filtrosObj || filtros;
+  if (!f.estadoConciliacion.size) return base;
+  return base.filter(d => [...f.estadoConciliacion].some(opt => {
     if (opt === 'EJECUCION') return d.estado === 'EJECUCION';
     if (opt === 'EN GIRO') return d.estado === 'EN GIRO';
     if (opt === 'CONCILIACION') return d.esConciliado;
@@ -1526,11 +1547,8 @@ function mostrarAvisoChart(){
   document.getElementById('mainContent').prepend(div);
 }
 
-function renderEstadoBoxes(filtrados){
-  renderEstadoBoxesEn('estadoBoxes', filtrados);
-}
-
-function renderEstadoBoxesEn(containerId, filtrados){
+function renderEstadoBoxesEn(containerId, filtrados, filtrosObj){
+  const f = filtrosObj || filtros;
   const cont = document.getElementById(containerId);
   if (!cont) return;
   const estados = valoresUnicos(DATA, 'estado');
@@ -1538,10 +1556,10 @@ function renderEstadoBoxesEn(containerId, filtrados){
   estados.forEach(e => {
     const count = filtrados.filter(d => d.estado === e).length;
     const box = document.createElement('div');
-    box.className = 'estado-box' + (filtros.estado.size === 0 || filtros.estado.has(e) ? ' on' : '');
+    box.className = 'estado-box' + (f.estado.size === 0 || f.estado.has(e) ? ' on' : '');
     box.innerHTML = `<span class="lbl">${e}</span><span class="cnt">${count}</span>`;
     box.onclick = () => {
-      if (filtros.estado.has(e)) filtros.estado.delete(e); else filtros.estado.add(e);
+      if (f.estado.has(e)) f.estado.delete(e); else f.estado.add(e);
       renderTodo();
     };
     cont.appendChild(box);
@@ -1635,9 +1653,9 @@ function renderChartDistrito(filtrados){
         if (!elements.length) return;
         const idx = elements[0].index;
         if (hayOtros && idx === distritos.length - 1){
-          toggleGrupo(filtros.distrito, restoNombres);
+          toggleGrupo(filtrosPorTab.tabGeneral.distrito, restoNombres);
         } else {
-          toggleFiltro(filtros.distrito, distritos[idx]);
+          toggleFiltro(filtrosPorTab.tabGeneral.distrito, distritos[idx]);
         }
         renderTodo();
       }
@@ -1676,7 +1694,7 @@ function renderChartAnio(filtrados){
       },
       onClick: (evt, elements, chart) => {
         if (!elements.length) return;
-        toggleFiltro(filtros.anio, anios[elements[0].index]);
+        toggleFiltro(filtrosPorTab.tabGeneral.anio, anios[elements[0].index]);
         renderTodo();
       }
     }
@@ -1708,9 +1726,9 @@ function renderChartMateria(filtrados){
         if (!elements.length) return;
         const idx = elements[0].index;
         if (restoSum > 0 && idx === entradas.length - 1){
-          toggleGrupo(filtros.materia, restoNombres);
+          toggleGrupo(filtrosPorTab.tabGeneral.materia, restoNombres);
         } else {
-          toggleFiltro(filtros.materia, entradas[idx][0]);
+          toggleFiltro(filtrosPorTab.tabGeneral.materia, entradas[idx][0]);
         }
         renderTodo();
       }
@@ -1741,7 +1759,7 @@ function renderChartReposicion(filtrados){
       },
       onClick: (evt, elements, chart) => {
         if (!elements.length) return;
-        toggleFiltro(filtros.reposicion, entradas[elements[0].index][0]);
+        toggleFiltro(filtrosPorTab.tabGeneral.reposicion, entradas[elements[0].index][0]);
         renderTodo();
       }
     }
@@ -1767,7 +1785,7 @@ function renderChartResultado(filtrados){
       plugins: { legend: { position: 'bottom', labels: { boxWidth: 9, padding: 14, font: { size: 11 } } } },
       onClick: (evt, elements, chart) => {
         if (!elements.length) return;
-        toggleFiltro(filtros.resultado, entradas[elements[0].index]);
+        toggleFiltro(filtrosPorTab.tabGeneral.resultado, entradas[elements[0].index]);
         renderTodo();
       }
     }
@@ -1798,8 +1816,8 @@ function construirChecklist(containerId, valores, filtroSet, onChange){
   });
 }
 
-function renderTabLima1Base(filtradosLima1){
-  renderEstadoBoxesEn('estadoBoxesLima1', filtradosLima1);
+function renderTabLima1Base(filtradosLima1, lima1SinEstado){
+  renderEstadoBoxesEn('estadoBoxesLima1', lima1SinEstado, filtrosPorTab.tabLima1);
   renderTablaLima1(filtradosLima1);
 }
 
@@ -1833,7 +1851,7 @@ function renderChartRepuesto(filtradosLima1){
       },
       onClick: (evt, elements, chart) => {
         if (!elements.length) return;
-        toggleFiltro(filtros.estaRepuesto, orden[elements[0].index]);
+        toggleFiltro(filtrosPorTab.tabLima1.estaRepuesto, orden[elements[0].index]);
         renderTodo();
       }
     }
@@ -1859,7 +1877,7 @@ function renderChartResultadoLima1(filtradosLima1){
       plugins: { legend: { position: 'bottom', labels: { boxWidth: 9, padding: 14, font: { size: 11 } } } },
       onClick: (evt, elements, chart) => {
         if (!elements.length) return;
-        toggleFiltro(filtros.resultado, entradas[elements[0].index]);
+        toggleFiltro(filtrosPorTab.tabLima1.resultado, entradas[elements[0].index]);
         renderTodo();
       }
     }
@@ -1895,9 +1913,9 @@ function renderChartDistritoLima1(filtradosLima1){
         if (!elements.length) return;
         const idx = elements[0].index;
         if (hayOtros && idx === labels.length - 1){
-          toggleGrupo(filtros.distrito, restoNombres);
+          toggleGrupo(filtrosPorTab.tabLima1.distrito, restoNombres);
         } else {
-          toggleFiltro(filtros.distrito, labels[idx]);
+          toggleFiltro(filtrosPorTab.tabLima1.distrito, labels[idx]);
         }
         renderTodo();
       }
@@ -1921,11 +1939,12 @@ function renderTablaLima1(filtradosLima1){
 /* ============ SOLUCIONES DE PAGO (tercera pestaña) ============ */
 
 function renderTabSolPagoBase(baseSolPago, filtradosSolPago){
-  renderEstadoConciliacionBoxes('estadoBoxesSolPago', baseSolPago);
+  renderEstadoConciliacionBoxes('estadoBoxesSolPago', baseSolPago, filtrosPorTab.tabSolPago);
   renderTablaSolPago(filtradosSolPago);
 }
 
-function renderEstadoConciliacionBoxes(containerId, base){
+function renderEstadoConciliacionBoxes(containerId, base, filtrosObj){
+  const f = filtrosObj || filtros;
   const cont = document.getElementById(containerId);
   if (!cont) return;
   const opciones = [
@@ -1941,10 +1960,10 @@ function renderEstadoConciliacionBoxes(containerId, base){
       return d.esConciliado;
     }).length;
     const box = document.createElement('div');
-    box.className = 'estado-box' + (filtros.estadoConciliacion.size === 0 || filtros.estadoConciliacion.has(o.key) ? ' on' : '');
+    box.className = 'estado-box' + (f.estadoConciliacion.size === 0 || f.estadoConciliacion.has(o.key) ? ' on' : '');
     box.innerHTML = `<span class="lbl">${o.label}</span><span class="cnt">${count}</span>`;
     box.onclick = () => {
-      toggleFiltro(filtros.estadoConciliacion, o.key);
+      toggleFiltro(f.estadoConciliacion, o.key);
       renderTodo();
     };
     cont.appendChild(box);
@@ -1988,9 +2007,9 @@ function renderChartDistritoSolPago(filtradosSolPago){
         if (!elements.length) return;
         const idx = elements[0].index;
         if (hayOtros && idx === distritos.length - 1){
-          toggleGrupo(filtros.distrito, restoNombres);
+          toggleGrupo(filtrosPorTab.tabSolPago.distrito, restoNombres);
         } else {
-          toggleFiltro(filtros.distrito, distritos[idx]);
+          toggleFiltro(filtrosPorTab.tabSolPago.distrito, distritos[idx]);
         }
         renderTodo();
       }
@@ -2029,7 +2048,7 @@ function renderChartRepuestoSolPago(filtradosSolPago){
       },
       onClick: (evt, elements, chart) => {
         if (!elements.length) return;
-        toggleFiltro(filtros.estaRepuesto, orden[elements[0].index]);
+        toggleFiltro(filtrosPorTab.tabSolPago.estaRepuesto, orden[elements[0].index]);
         renderTodo();
       }
     }
@@ -2055,7 +2074,7 @@ function renderChartResultadoSolPago(filtradosSolPago){
       plugins: { legend: { position: 'bottom', labels: { boxWidth: 9, padding: 14, font: { size: 11 } } } },
       onClick: (evt, elements, chart) => {
         if (!elements.length) return;
-        toggleFiltro(filtros.resultado, entradas[elements[0].index]);
+        toggleFiltro(filtrosPorTab.tabSolPago.resultado, entradas[elements[0].index]);
         renderTodo();
       }
     }
@@ -2078,7 +2097,7 @@ function renderTablaSolPago(filtradosSolPago){
 /* ============ PROVINCIAS 2 (cuarta pestaña) ============ */
 
 function renderTabProvincias2Base(baseProvincias2, filtradosProvincias2){
-  renderEstadoConciliacionBoxes('estadoBoxesProvincias2', baseProvincias2);
+  renderEstadoConciliacionBoxes('estadoBoxesProvincias2', baseProvincias2, filtrosPorTab.tabProvincias2);
   renderTablaProvincias2(filtradosProvincias2);
 }
 
@@ -2119,9 +2138,9 @@ function renderChartDistritoProvincias2(filtradosSub){
         if (!elements.length) return;
         const idx = elements[0].index;
         if (hayOtros && idx === distritos.length - 1){
-          toggleGrupo(filtros.distrito, restoNombres);
+          toggleGrupo(filtrosPorTab.tabProvincias2.distrito, restoNombres);
         } else {
-          toggleFiltro(filtros.distrito, distritos[idx]);
+          toggleFiltro(filtrosPorTab.tabProvincias2.distrito, distritos[idx]);
         }
         renderTodo();
       }
@@ -2163,7 +2182,7 @@ function renderChartAnioProvincias2(filtradosSub){
       },
       onClick: (evt, elements, chart) => {
         if (!elements.length) return;
-        toggleFiltro(filtros.anio, anios[elements[0].index]);
+        toggleFiltro(filtrosPorTab.tabProvincias2.anio, anios[elements[0].index]);
         renderTodo();
       }
     }
@@ -2201,7 +2220,7 @@ function renderChartRepuestoProvincias2(filtradosSub){
       },
       onClick: (evt, elements, chart) => {
         if (!elements.length) return;
-        toggleFiltro(filtros.estaRepuesto, orden[elements[0].index]);
+        toggleFiltro(filtrosPorTab.tabProvincias2.estaRepuesto, orden[elements[0].index]);
         renderTodo();
       }
     }
@@ -2227,7 +2246,7 @@ function renderChartResultadoProvincias2(filtradosSub){
       plugins: { legend: { position: 'bottom', labels: { boxWidth: 9, padding: 14, font: { size: 11 } } } },
       onClick: (evt, elements, chart) => {
         if (!elements.length) return;
-        toggleFiltro(filtros.resultado, entradas[elements[0].index]);
+        toggleFiltro(filtrosPorTab.tabProvincias2.resultado, entradas[elements[0].index]);
         renderTodo();
       }
     }
@@ -2266,6 +2285,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     document.getElementById(btn.dataset.tab).classList.add('active');
 
     tabActual = btn.dataset.tab;
+    filtros = filtrosPorTab[tabActual];
     const cfg = CONFIG_ENCABEZADO[tabActual];
     if (cfg) {
       document.getElementById('clienteTitulo').value = cfg.titulo;
@@ -2287,8 +2307,8 @@ function renderTabla(filtrados){
     tdDemandante.className = 'celda-filtrable';
     tdDemandante.title = 'Clic para buscar este demandante';
     tdDemandante.onclick = () => {
-      filtros.busqueda = (filtros.busqueda === d.demandante) ? '' : (d.demandante || '');
-      document.getElementById('searchBox').value = filtros.busqueda;
+      filtrosPorTab.tabGeneral.busqueda = (filtrosPorTab.tabGeneral.busqueda === d.demandante) ? '' : (d.demandante || '');
+      document.getElementById('searchBox').value = filtrosPorTab.tabGeneral.busqueda;
       renderTodo();
     };
 
@@ -2296,19 +2316,19 @@ function renderTabla(filtrados){
     tdPuesto.textContent = d.puesto || '';
     tdPuesto.className = 'celda-filtrable';
     tdPuesto.title = 'Clic para filtrar por este puesto';
-    tdPuesto.onclick = () => { toggleFiltro(filtros.puesto, d.puesto); renderTodo(); };
+    tdPuesto.onclick = () => { toggleFiltro(filtrosPorTab.tabGeneral.puesto, d.puesto); renderTodo(); };
 
     const tdMateria = document.createElement('td');
     tdMateria.textContent = d.materia || '';
     tdMateria.className = 'celda-filtrable';
     tdMateria.title = 'Clic para filtrar por esta materia';
-    tdMateria.onclick = () => { toggleFiltro(filtros.materia, d.materia); renderTodo(); };
+    tdMateria.onclick = () => { toggleFiltro(filtrosPorTab.tabGeneral.materia, d.materia); renderTodo(); };
 
     const tdMotivo = document.createElement('td');
     tdMotivo.textContent = d.motivoCese || '';
     tdMotivo.className = 'celda-filtrable';
     tdMotivo.title = 'Clic para filtrar por este motivo de cese';
-    tdMotivo.onclick = () => { toggleFiltro(filtros.motivoCese, d.motivoCese); renderTodo(); };
+    tdMotivo.onclick = () => { toggleFiltro(filtrosPorTab.tabGeneral.motivoCese, d.motivoCese); renderTodo(); };
 
     tr.append(tdDemandante, tdPuesto, tdMateria, tdMotivo);
     tbody.appendChild(tr);
@@ -2318,38 +2338,47 @@ function renderTabla(filtrados){
 /* ============ 4. INICIALIZACIÓN DE FILTROS ============ */
 
 function inicializarFiltros(){
-  dropdownUpdaters.distrito = construirDropdown('Distrito', valoresUnicos(DATA, 'distrito'), filtros.distrito, renderTodo);
-  dropdownUpdaters.area = construirDropdown('Area', valoresUnicos(DATA, 'area'), filtros.area, renderTodo);
-  dropdownUpdaters.materia = construirDropdown('Materia', valoresUnicos(DATA, 'materia'), filtros.materia, renderTodo);
-  dropdownUpdaters.anio = construirDropdown('Anio', valoresUnicos(DATA, 'anio').map(String), filtros.anio, renderTodo);
-  dropdownUpdaters.puesto = construirDropdown('Puesto', valoresUnicos(DATA, 'puesto'), filtros.puesto, renderTodo);
-  dropdownUpdaters.motivoCese = construirDropdown('MotivoCese', valoresUnicos(DATA, 'motivoCese'), filtros.motivoCese, renderTodo);
-  dropdownUpdaters.puestoLima1 = construirDropdown('PuestoLima1', valoresUnicos(DATA, 'puesto'), filtros.puesto, renderTodo);
-  dropdownUpdaters.motivoCeseLima1 = construirDropdown('MotivoCeseLima1', valoresUnicos(DATA, 'motivoCese'), filtros.motivoCese, renderTodo);
-  dropdownUpdaters.puestoSolPago = construirDropdown('PuestoSolPago', valoresUnicos(DATA, 'puesto'), filtros.puesto, renderTodo);
-  dropdownUpdaters.motivoCeseSolPago = construirDropdown('MotivoCeseSolPago', valoresUnicos(DATA, 'motivoCese'), filtros.motivoCese, renderTodo);
-  dropdownUpdaters.puestoProvincias2 = construirDropdown('PuestoProvincias2', valoresUnicos(DATA, 'puesto'), filtros.puesto, renderTodo);
-  dropdownUpdaters.motivoCeseProvincias2 = construirDropdown('MotivoCeseProvincias2', valoresUnicos(DATA, 'motivoCese'), filtros.motivoCese, renderTodo);
-  construirChips('chipsResultado', ['Favorable','Desfavorable','Pendiente','Conciliado'], filtros.resultado, renderTodo);
-  construirChips('chipsReposicion', ['SI','NO','NO APLICA','PENDIENTE'], filtros.reposicion, renderTodo);
-  construirChips('chipsReposicionInicial', ['SÍ','NO'], filtros.reposicionInicial, renderTodo);
+  // Barra superior compartida: controla siempre los filtros de la pestaña ACTUALMENTE activa
+  dropdownUpdaters.distrito = construirDropdown('Distrito', valoresUnicos(DATA, 'distrito'), () => filtros.distrito, renderTodo);
+  dropdownUpdaters.area = construirDropdown('Area', valoresUnicos(DATA, 'area'), () => filtros.area, renderTodo);
+  dropdownUpdaters.materia = construirDropdown('Materia', valoresUnicos(DATA, 'materia'), () => filtros.materia, renderTodo);
+  dropdownUpdaters.anio = construirDropdown('Anio', valoresUnicos(DATA, 'anio').map(String), () => filtros.anio, renderTodo);
+  construirChips('chipsResultado', ['Favorable','Desfavorable','Pendiente','Conciliado'], () => filtros.resultado, renderTodo);
+  construirChips('chipsReposicion', ['SI','NO','NO APLICA','PENDIENTE'], () => filtros.reposicion, renderTodo);
+  construirChips('chipsReposicionInicial', ['SÍ','NO'], () => filtros.reposicionInicial, renderTodo);
 
-  const camposBusqueda = [document.getElementById('searchBox'), document.getElementById('searchBoxLima1'), document.getElementById('searchBoxSolPago'), document.getElementById('searchBoxProvincias2')];
-  camposBusqueda.forEach(input => {
-    input.oninput = (e) => {
-      filtros.busqueda = e.target.value;
-      camposBusqueda.forEach(otro => { if (otro !== e.target) otro.value = e.target.value; });
+  // Filtros de Puesto/Motivo de cese dentro de cada tabla: siempre atados a SU propia pestaña
+  dropdownUpdaters.puesto = construirDropdown('Puesto', valoresUnicos(DATA, 'puesto'), () => filtrosPorTab.tabGeneral.puesto, renderTodo);
+  dropdownUpdaters.motivoCese = construirDropdown('MotivoCese', valoresUnicos(DATA, 'motivoCese'), () => filtrosPorTab.tabGeneral.motivoCese, renderTodo);
+  dropdownUpdaters.puestoLima1 = construirDropdown('PuestoLima1', valoresUnicos(DATA, 'puesto'), () => filtrosPorTab.tabLima1.puesto, renderTodo);
+  dropdownUpdaters.motivoCeseLima1 = construirDropdown('MotivoCeseLima1', valoresUnicos(DATA, 'motivoCese'), () => filtrosPorTab.tabLima1.motivoCese, renderTodo);
+  dropdownUpdaters.puestoSolPago = construirDropdown('PuestoSolPago', valoresUnicos(DATA, 'puesto'), () => filtrosPorTab.tabSolPago.puesto, renderTodo);
+  dropdownUpdaters.motivoCeseSolPago = construirDropdown('MotivoCeseSolPago', valoresUnicos(DATA, 'motivoCese'), () => filtrosPorTab.tabSolPago.motivoCese, renderTodo);
+  dropdownUpdaters.puestoProvincias2 = construirDropdown('PuestoProvincias2', valoresUnicos(DATA, 'puesto'), () => filtrosPorTab.tabProvincias2.puesto, renderTodo);
+  dropdownUpdaters.motivoCeseProvincias2 = construirDropdown('MotivoCeseProvincias2', valoresUnicos(DATA, 'motivoCese'), () => filtrosPorTab.tabProvincias2.motivoCese, renderTodo);
+
+  // Cada buscador solo controla la búsqueda de SU propia pestaña (independientes entre sí)
+  const buscadores = {
+    tabGeneral: document.getElementById('searchBox'),
+    tabLima1: document.getElementById('searchBoxLima1'),
+    tabSolPago: document.getElementById('searchBoxSolPago'),
+    tabProvincias2: document.getElementById('searchBoxProvincias2')
+  };
+  Object.keys(buscadores).forEach(tabKey => {
+    buscadores[tabKey].oninput = (e) => {
+      filtrosPorTab[tabKey].busqueda = e.target.value;
       renderTodo();
     };
   });
 
   document.getElementById('btnClear').onclick = () => {
-    filtros.estado.clear(); filtros.distrito.clear(); filtros.area.clear(); filtros.materia.clear();
-    filtros.anio.clear(); filtros.puesto.clear(); filtros.motivoCese.clear();
-    filtros.resultado.clear(); filtros.reposicion.clear(); filtros.reposicionInicial.clear(); filtros.estaRepuesto.clear();
-    filtros.estadoConciliacion.clear();
-    filtros.busqueda = '';
-    camposBusqueda.forEach(input => { input.value = ''; });
+    const f = filtrosPorTab[tabActual];
+    f.estado.clear(); f.distrito.clear(); f.area.clear(); f.materia.clear();
+    f.anio.clear(); f.puesto.clear(); f.motivoCese.clear();
+    f.resultado.clear(); f.reposicion.clear(); f.reposicionInicial.clear(); f.estaRepuesto.clear();
+    f.estadoConciliacion.clear();
+    f.busqueda = '';
+    buscadores[tabActual].value = '';
     renderTodo();
   };
 }
