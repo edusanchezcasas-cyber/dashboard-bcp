@@ -1091,11 +1091,13 @@ function ultimaInstanciaConResultado(r){
 }
 
 function estaRepuesto(r){
+  // Ya hay reposición efectivamente ejecutada: esto manda sin importar el resto de campos
+  // (confirmado con Claudia: hay casos con fecha de reposición aunque diga "no se solicitó")
+  if (r['Fecha de reposición']) return 'Sí';
+
   const solicitada = (r['¿Se solicita reposición?'] || '').toUpperCase();
   // No se solicitó reposición en la demanda -> no aplica el concepto
   if (solicitada !== 'SI') return 'No aplica';
-  // Ya hay reposición efectivamente ejecutada
-  if (r['Fecha de reposición']) return 'Sí';
 
   const ultima = ultimaInstanciaConResultado(r);
 
