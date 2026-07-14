@@ -844,7 +844,7 @@ const PERU_MAP_CENTROIDS = {"AMAZONAS": [177.4, 247.5], "ANCASH": [206.0, 458.9]
 
   <footer class="note">
     <b>Vista "Lima 1":</b> muestra el mismo universo de procesos activos que Banca Afluente (563), con una selección distinta de gráficos. Puedes usar el filtro de Área de arriba si quieres acotarlo manualmente a "Lima 1".
-    <b>"Está repuesto"</b> (confirmado con el equipo): solo aplica a procesos donde sí se solicitó reposición. <b>Sí</b> = ya hay fecha de reposición registrada. <b>Pendiente sentencia definitiva</b> = no hay sentencia en ninguna instancia todavía, o la última instancia quedó en estado "Pendiente" (equivalente a una sentencia sin resolver / nula). <b>Latente</b> = la última sentencia emitida (de 1ª o 2ª instancia) ordenó expresamente la reposición pero aún no se ejecuta. <b>NO</b> = se solicitó reposición pero la última sentencia no la ordenó. <b>No aplica</b> = no se solicitó reposición. Este gráfico considera <b>todos los estados activos</b> (Ejecución y En giro), sin importar qué Estado tengas seleccionado en los filtros de arriba.
+    <b>"Está repuesto"</b> (confirmado con el equipo): solo aplica a procesos donde sí se solicitó reposición. <b>No aplica</b> = no se solicitó reposición, o la última sentencia fue una conciliación/transacción (no se toma en cuenta para este análisis). <b>Pendiente sentencia definitiva</b> = no hay sentencia en ninguna instancia todavía, o la última quedó en estado "Pendiente". <b>Latente</b> = la última sentencia ordenó la reposición pero aún no hay fecha de reposición registrada (no se ha ejecutado). <b>Sí</b> = la última sentencia ordenó la reposición y ya hay fecha de reposición registrada. <b>NO</b> = la última sentencia no ordenó la reposición — esto aplica aunque el caso tenga de todas formas una fecha de reposición registrada, no se omite por eso. Este gráfico considera <b>todos los estados activos</b> (Ejecución y En giro), sin importar qué Estado tengas seleccionado en los filtros de arriba.
   </footer>
   </div>
 
@@ -1073,6 +1073,7 @@ function resultadoActual(r){
 function implicaReposicion(r, resActual){
   const solicitada = (r['¿Se solicita reposición?'] || '').toUpperCase();
   if (solicitada !== 'SI') return 'NO APLICA';
+  if (esConciliado(r)) return 'CONCILIADO';
   if (resActual === 'Pendiente') return 'PENDIENTE';
   const ultima = ultimaInstanciaConResultado(r);
   if (!ultima) return 'PENDIENTE';
@@ -1091,24 +1092,26 @@ function ultimaInstanciaConResultado(r){
 }
 
 function estaRepuesto(r){
-  // Ya hay reposición efectivamente ejecutada: esto manda sin importar el resto de campos
-  // (confirmado con Claudia: hay casos con fecha de reposición aunque diga "no se solicitó")
-  if (r['Fecha de reposición']) return 'Sí';
-
   const solicitada = (r['¿Se solicita reposición?'] || '').toUpperCase();
   // No se solicitó reposición en la demanda -> no aplica el concepto
   if (solicitada !== 'SI') return 'No aplica';
 
   const ultima = ultimaInstanciaConResultado(r);
 
+  // Si la última sentencia fue una conciliación/transacción, no se toma en consideración para este análisis
+  if (esConciliado(r)) return 'No aplica';
+
   // Sin sentencia en ninguna instancia, o la última quedó "Pendiente" (equivale a sentencia nula/sin resolver)
   if (!ultima || ultima.res === 'Pendiente') return 'Pendiente sentencia definitiva';
 
   const repoOrdenada = (ultima.repo || '').toUpperCase() === 'SI';
 
-  if (repoOrdenada) return 'Latente'; // ordenada pero aún no ejecutada (impugnable en 1ª/2ª, o recién en Suprema)
+  if (repoOrdenada) {
+    // La última sentencia ordenó la reposición: Sí si ya se ejecutó (hay fecha), Latente si aún no.
+    return r['Fecha de reposición'] ? 'Sí' : 'Latente';
+  }
 
-  // La última sentencia no ordenó reposición (se solicitó pero no se concedió)
+  // La última sentencia no ordenó reposición → NO, sin omitir los casos que además tengan fecha de reposición registrada
   return 'NO';
 }
 
@@ -1741,7 +1744,7 @@ function renderChartMateria(filtrados){
 
 function renderChartReposicion(filtrados){
   const ctx = document.getElementById('chartReposicion');
-  const orden = ['NO','NO APLICA','PENDIENTE','SI'];
+  const orden = ['NO','NO APLICA','PENDIENTE','SI','CONCILIADO'];
   const conteo = contarPor(filtrados, 'implicaReposicion');
   const entradas = orden.filter(k => conteo[k]).map(k => [k, conteo[k]]);
   charts.reposicion = new Chart(ctx, {
@@ -2346,7 +2349,7 @@ function inicializarFiltros(){
   dropdownUpdaters.materia = construirDropdown('Materia', valoresUnicos(DATA, 'materia'), () => filtros.materia, renderTodo);
   dropdownUpdaters.anio = construirDropdown('Anio', valoresUnicos(DATA, 'anio').map(String), () => filtros.anio, renderTodo);
   construirChips('chipsResultado', ['Favorable','Desfavorable','Pendiente','Conciliado'], () => filtros.resultado, renderTodo);
-  construirChips('chipsReposicion', ['SI','NO','NO APLICA','PENDIENTE'], () => filtros.reposicion, renderTodo);
+  construirChips('chipsReposicion', ['SI','NO','NO APLICA','PENDIENTE','CONCILIADO'], () => filtros.reposicion, renderTodo);
   construirChips('chipsReposicionInicial', ['SÍ','NO'], () => filtros.reposicionInicial, renderTodo);
 
   // Filtros de Puesto/Motivo de cese dentro de cada tabla: siempre atados a SU propia pestaña
